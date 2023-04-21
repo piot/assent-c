@@ -3,19 +3,16 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 #include <assent/assent.h>
-#include <clog/clog.h>
 #include <imprint/allocator.h>
 #include <nimble-steps-serialize/in_serialize.h>
 
-void assentInit(Assent* self, AssentTickFn tickFn, AssentGetStateFn getStateFn, void* customState,
+void assentInit(Assent* self, TransmuteVm transmuteVm,
                 struct ImprintAllocator* allocator, size_t maxTicksPerRead, size_t maxPlayers)
 {
-    self->tickFn = tickFn;
-    self->getStateFn = getStateFn;
-    self->applicationSpecificCacheState = customState;
+    self->transmuteVm = transmuteVm;
     self->maxPlayerCount = maxPlayers;
     self->maxTicksPerRead = maxTicksPerRead;
-    self->cachedTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(allocator, TransmutePartipiantInput,
+    self->cachedTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(allocator, TransmuteParticipantInput ,
                                                                             maxPlayers);
     self->cachedTransmuteInput.participantCount = 0;
     self->readTempBufferSize = 512;
@@ -24,10 +21,10 @@ void assentInit(Assent* self, AssentTickFn tickFn, AssentGetStateFn getStateFn, 
 
 void assentDestroy(Assent* self)
 {
-    self->tickFn = 0;
+    self->transmuteVm.vmPointer = 0;
 }
 
-int assentRead(Assent* self, struct NbsSteps* steps)
+int assentUpdate(Assent* self, struct NbsSteps* steps)
 {
     StepId outStepId;
 
@@ -57,7 +54,7 @@ int assentRead(Assent* self, struct NbsSteps* steps)
             self->cachedTransmuteInput.participantInputs[i].octetSize = participant->payloadCount;
         }
 
-        self->tickFn(self->applicationSpecificCacheState, &self->cachedTransmuteInput);
+        transmuteVmTick(&self->transmuteVm, &self->cachedTransmuteInput);
     }
 
     return 0;
@@ -65,5 +62,5 @@ int assentRead(Assent* self, struct NbsSteps* steps)
 
 TransmuteState assentGetState(const Assent* self)
 {
-    return self->getStateFn(self->applicationSpecificCacheState);
+    return transmuteVmGetState(&self->transmuteVm);
 }
