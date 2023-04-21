@@ -79,11 +79,12 @@ int appSpecificInputToString(void* _self, const TransmuteParticipantInput* input
 
 UTEST(Assent, verify)
 {
+    ImprintDefaultSetup imprint;
+    imprintDefaultSetupInit(&imprint, 16 * 1024 * 1024);
+
     Assent assent;
 
     AppSpecificVm appSpecificVm;
-    appSpecificVm.appSpecificState.time = 0;
-    appSpecificVm.appSpecificState.x = 0;
 
     TransmuteVm transmuteVm;
     TransmuteVmSetup setup;
@@ -101,13 +102,28 @@ UTEST(Assent, verify)
 
     transmuteVmInit(&transmuteVm, &appSpecificVm, setup, subLog);
 
-    ImprintDefaultSetup imprint;
-    imprintDefaultSetupInit(&imprint, 16 * 1024 * 1024);
+    AppSpecificState initialAppState;
+    initialAppState.time = 0;
+    initialAppState.x = 0;
+
+    TransmuteState initialTransmuteState;
+    initialTransmuteState.state = &initialAppState;
+    initialTransmuteState.octetSize = sizeof(initialAppState);
+
+    StepId initialStepId = {101};
+
+    assentInit(&assent, transmuteVm,
+               &imprint.slabAllocator.info.allocator, 100,
+               16);
+
+    assentSetState(&assent, &initialTransmuteState, initialStepId);
+
+
 
     NbsSteps stepBuffer;
 
     nbsStepsInit(&stepBuffer, &imprint.slabAllocator.info.allocator, 7);
-
+    nbsStepsReInit(&stepBuffer, initialStepId);
     NimbleStepsOutSerializeLocalParticipants data;
     AppSpecificParticipantInput gameInput;
     gameInput.horizontalAxis = 24;
@@ -116,6 +132,7 @@ UTEST(Assent, verify)
     data.participants[0].payload = (const uint8_t*) &gameInput;
     data.participants[0].payloadCount = sizeof(gameInput);
     data.participantCount = 1;
+
     uint8_t stepBuf[64];
 
     int octetLength = nbsStepsOutSerializeStep(&data, stepBuf, 64);
@@ -123,19 +140,20 @@ UTEST(Assent, verify)
         CLOG_ERROR("not working")
     }
 
-    StepId first = {0};
+    nbsStepsWrite(&stepBuffer, initialStepId,  stepBuf, octetLength);
 
-    nbsStepsWrite(&stepBuffer, first,  stepBuf, octetLength);
 
-    assentInit(&assent, transmuteVm,
-               &imprint.slabAllocator.info.allocator, 100,
-               16);
 
     ASSERT_EQ(0, appSpecificVm.appSpecificState.x);
     ASSERT_EQ(0, appSpecificVm.appSpecificState.time);
 
     assentUpdate(&assent, &stepBuffer);
 
-    ASSERT_EQ(1, appSpecificVm.appSpecificState.x);
-    ASSERT_EQ(1, appSpecificVm.appSpecificState.time);
+    StepId expectedStepId;
+    TransmuteState currentState = assentGetState(&assent, &expectedStepId);
+    const AppSpecificState* currentAppState = (const AppSpecificState*) currentState.state;
+
+    ASSERT_EQ(initialStepId+1, expectedStepId);
+    ASSERT_EQ(1, currentAppState->x);
+    ASSERT_EQ(1, currentAppState->time);
 }

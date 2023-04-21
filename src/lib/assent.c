@@ -17,6 +17,7 @@ void assentInit(Assent* self, TransmuteVm transmuteVm,
     self->cachedTransmuteInput.participantCount = 0;
     self->readTempBufferSize = 512;
     self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(allocator, uint8_t, self->readTempBufferSize);
+    self->initialStateIsSet = false;
 }
 
 void assentDestroy(Assent* self)
@@ -24,14 +25,30 @@ void assentDestroy(Assent* self)
     self->transmuteVm.vmPointer = 0;
 }
 
+void assentSetState(Assent* self, TransmuteState* state, StepId stepId)
+{
+    transmuteVmSetState(&self->transmuteVm, state);
+    self->stepId = stepId;
+    self->initialStateIsSet = true;
+}
+
 int assentUpdate(Assent* self, struct NbsSteps* steps)
 {
+    if (!self->initialStateIsSet) {
+        CLOG_ERROR("can not update, need a SetState() before update")
+        return -1;
+    }
     StepId outStepId;
 
     for (size_t readCount = 0; readCount < self->maxTicksPerRead; ++readCount) {
         int payloadOctetCount = nbsStepsRead(steps, &outStepId, self->readTempBuffer, self->readTempBufferSize);
         if (payloadOctetCount <= 0) {
             break;
+        }
+
+        if (outStepId != self->stepId) {
+            CLOG_ERROR("internal error steps buffer is missing steps. expected %04X but received %04X", self->stepId, outStepId)
+            return -1;
         }
         struct NimbleStepsOutSerializeLocalParticipants participants;
 
@@ -55,12 +72,17 @@ int assentUpdate(Assent* self, struct NbsSteps* steps)
         }
 
         transmuteVmTick(&self->transmuteVm, &self->cachedTransmuteInput);
+        self->stepId++;
     }
 
     return 0;
 }
 
-TransmuteState assentGetState(const Assent* self)
+TransmuteState assentGetState(const Assent* self, StepId* outStepId)
 {
+    if (!self->initialStateIsSet) {
+        CLOG_ERROR("can not get state before set state")
+    }
+    *outStepId = self->stepId;
     return transmuteVmGetState(&self->transmuteVm);
 }
