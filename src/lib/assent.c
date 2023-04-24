@@ -7,7 +7,7 @@
 #include <nimble-steps-serialize/in_serialize.h>
 
 void assentInit(Assent* self, TransmuteVm transmuteVm,
-                struct ImprintAllocator* allocator, size_t maxTicksPerRead, size_t maxPlayers)
+                struct ImprintAllocator* allocator, size_t maxTicksPerRead, size_t maxPlayers, Clog log)
 {
     self->transmuteVm = transmuteVm;
     self->maxPlayerCount = maxPlayers;
@@ -18,6 +18,7 @@ void assentInit(Assent* self, TransmuteVm transmuteVm,
     self->readTempBufferSize = 512;
     self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(allocator, uint8_t, self->readTempBufferSize);
     self->initialStateIsSet = false;
+    self->log = log;
 }
 
 void assentDestroy(Assent* self)

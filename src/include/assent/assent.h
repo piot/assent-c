@@ -23,10 +23,11 @@ typedef struct Assent {
     size_t readTempBufferSize;
     StepId stepId;
     bool initialStateIsSet;
+    Clog log;
 } Assent;
 
 void assentInit(Assent* self, TransmuteVm transmuteVm,
-                struct ImprintAllocator* allocator, size_t maxInputOctetSize, size_t maxPlayers);
+                struct ImprintAllocator* allocator, size_t maxInputOctetSize, size_t maxPlayers, Clog log);
 void assentSetState(Assent* self, TransmuteState* state, StepId stepId);
 
 void assentDestroy(Assent* self);
