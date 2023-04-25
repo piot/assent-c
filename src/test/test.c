@@ -119,36 +119,32 @@ UTEST(Assent, verify)
     assentSubLog.config = &g_clog;
     assentSubLog.constantPrefix = "Assent";
 
-    assentInit(&assent, transmuteVm, &imprint.slabAllocator.info.allocator, 100, 16, assentSubLog);
+    AssentSetup assentSetup;
+    assentSetup.allocator = &imprint.slabAllocator.info.allocator;
+    assentSetup.maxTicksPerRead = 15;
+    assentSetup.maxPlayers = 16;
+    assentSetup.maxInputOctetSize = 100;
+    assentSetup.log = assentSubLog;
 
-    assentSetState(&assent, &initialTransmuteState, initialStepId);
+    assentInit(&assent, transmuteVm, assentSetup, initialTransmuteState, initialStepId);
 
-    NbsSteps stepBuffer;
-
-    nbsStepsInit(&stepBuffer, &imprint.slabAllocator.info.allocator, 7);
-    nbsStepsReInit(&stepBuffer, initialStepId);
-    NimbleStepsOutSerializeLocalParticipants data;
     AppSpecificParticipantInput gameInput;
     gameInput.horizontalAxis = 24;
 
-    data.participants[0].participantIndex = 0;
-    data.participants[0].payload = (const uint8_t*) &gameInput;
-    data.participants[0].payloadCount = sizeof(gameInput);
-    data.participantCount = 1;
+    TransmuteInput transmuteInput;
+    TransmuteParticipantInput participantInputs[1];
+    participantInputs[0].input = &gameInput;
+    participantInputs[0].octetSize = sizeof(gameInput);
 
-    uint8_t stepBuf[64];
+    transmuteInput.participantInputs = participantInputs;
+    transmuteInput.participantCount = 1;
 
-    int octetLength = nbsStepsOutSerializeStep(&data, stepBuf, 64);
-    if (octetLength < 0) {
-        CLOG_ERROR("not working")
-    }
-
-    nbsStepsWrite(&stepBuffer, initialStepId, stepBuf, octetLength);
+    assentAddAuthoritativeStep(&assent, &transmuteInput, initialStepId);
 
     ASSERT_EQ(0, appSpecificVm.appSpecificState.x);
     ASSERT_EQ(0, appSpecificVm.appSpecificState.time);
 
-    assentUpdate(&assent, &stepBuffer);
+    assentUpdate(&assent);
 
     StepId expectedStepId;
     TransmuteState currentState = assentGetState(&assent, &expectedStepId);

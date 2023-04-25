@@ -2,23 +2,26 @@
  *  Copyright (c) Peter Bjorklund. All rights reserved.
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+#include "nimble-steps-serialize/out_serialize.h"
 #include <assent/assent.h>
 #include <imprint/allocator.h>
 #include <nimble-steps-serialize/in_serialize.h>
 
-void assentInit(Assent* self, TransmuteVm transmuteVm,
-                struct ImprintAllocator* allocator, size_t maxTicksPerRead, size_t maxPlayers, Clog log)
+void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, TransmuteState state, StepId stepId)
 {
     self->transmuteVm = transmuteVm;
-    self->maxPlayerCount = maxPlayers;
-    self->maxTicksPerRead = maxTicksPerRead;
-    self->cachedTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(allocator, TransmuteParticipantInput ,
-                                                                            maxPlayers);
+    self->maxPlayerCount = setup.maxPlayers;
+    self->maxTicksPerRead = setup.maxTicksPerRead;
+    self->cachedTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, TransmuteParticipantInput ,
+                                                                            setup.maxPlayers);
     self->cachedTransmuteInput.participantCount = 0;
     self->readTempBufferSize = 512;
-    self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(allocator, uint8_t, self->readTempBufferSize);
-    self->initialStateIsSet = false;
-    self->log = log;
+    self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, uint8_t, self->readTempBufferSize);
+    nbsStepsInit(&self->authoritativeSteps, setup.allocator, setup.maxInputOctetSize);
+    nbsStepsReInit(&self->authoritativeSteps, stepId);
+    transmuteVmSetState(&self->transmuteVm, &state);
+    self->stepId = stepId;
+    self->log = setup.log;
 }
 
 void assentDestroy(Assent* self)
@@ -26,23 +29,12 @@ void assentDestroy(Assent* self)
     self->transmuteVm.vmPointer = 0;
 }
 
-void assentSetState(Assent* self, TransmuteState* state, StepId stepId)
+int assentUpdate(Assent* self)
 {
-    transmuteVmSetState(&self->transmuteVm, state);
-    self->stepId = stepId;
-    self->initialStateIsSet = true;
-}
-
-int assentUpdate(Assent* self, struct NbsSteps* steps)
-{
-    if (!self->initialStateIsSet) {
-        CLOG_ERROR("can not update, need a SetState() before update")
-        return -1;
-    }
     StepId outStepId;
 
     for (size_t readCount = 0; readCount < self->maxTicksPerRead; ++readCount) {
-        int payloadOctetCount = nbsStepsRead(steps, &outStepId, self->readTempBuffer, self->readTempBufferSize);
+        int payloadOctetCount = nbsStepsRead(&self->authoritativeSteps, &outStepId, self->readTempBuffer, self->readTempBufferSize);
         if (payloadOctetCount <= 0) {
             break;
         }
@@ -81,9 +73,29 @@ int assentUpdate(Assent* self, struct NbsSteps* steps)
 
 TransmuteState assentGetState(const Assent* self, StepId* outStepId)
 {
-    if (!self->initialStateIsSet) {
-        CLOG_ERROR("can not get state before set state")
-    }
     *outStepId = self->stepId;
     return transmuteVmGetState(&self->transmuteVm);
+}
+
+int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId)
+{
+    NimbleStepsOutSerializeLocalParticipants data;
+
+    for (size_t i = 0; i < input->participantCount; ++i) {
+        data.participants[i].participantIndex = i;
+        data.participants[i].payload = input->participantInputs[i].input;
+        data.participants[i].payloadCount = input->participantInputs[i].octetSize;
+    }
+
+    data.participantCount = input->participantCount;
+
+
+    int octetCount = nbsStepsOutSerializeStep(&data, self->readTempBuffer, self->readTempBufferSize);
+    if (octetCount < 0) {
+        CLOG_ERROR("seerAddPredictedSteps: could not serialize")
+        return octetCount;
+    }
+
+    return nbsStepsWrite(&self->authoritativeSteps, tickId, self->readTempBuffer, octetCount);
+
 }

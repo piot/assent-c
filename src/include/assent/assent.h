@@ -22,16 +22,22 @@ typedef struct Assent {
     uint8_t* readTempBuffer;
     size_t readTempBufferSize;
     StepId stepId;
-    bool initialStateIsSet;
     Clog log;
+    NbsSteps authoritativeSteps;
 } Assent;
 
-void assentInit(Assent* self, TransmuteVm transmuteVm,
-                struct ImprintAllocator* allocator, size_t maxInputOctetSize, size_t maxPlayers, Clog log);
-void assentSetState(Assent* self, TransmuteState* state, StepId stepId);
+typedef struct AssentSetup {
+    struct ImprintAllocator* allocator;
+    size_t maxTicksPerRead;
+    size_t maxPlayers;
+    size_t maxInputOctetSize;
+    Clog log;
+} AssentSetup;
 
+void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, TransmuteState state, StepId stepId);
 void assentDestroy(Assent* self);
-int assentUpdate(Assent* self, struct NbsSteps* steps);
+int assentUpdate(Assent* self);
+int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
 TransmuteState assentGetState(const Assent* self, StepId* outStepId);
 
 #endif
