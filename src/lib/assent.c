@@ -15,9 +15,12 @@ void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, Transm
     self->cachedTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, TransmuteParticipantInput ,
                                                                             setup.maxPlayers);
     self->cachedTransmuteInput.participantCount = 0;
-    self->readTempBufferSize = 512;
+
+    size_t combinedStepOctetCount = nbsStepsOutSerializeCalculateCombinedSize(setup.maxPlayers, setup.maxStepOctetSizeForSingleParticipant);
+    self->readTempBufferSize = combinedStepOctetCount;
     self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, uint8_t, self->readTempBufferSize);
-    nbsStepsInit(&self->authoritativeSteps, setup.allocator, setup.maxInputOctetSize);
+
+    nbsStepsInit(&self->authoritativeSteps, setup.allocator, combinedStepOctetCount, setup.log);
     nbsStepsReInit(&self->authoritativeSteps, stepId);
     transmuteVmSetState(&self->transmuteVm, &state);
     self->stepId = stepId;
@@ -40,21 +43,21 @@ int assentUpdate(Assent* self)
         }
 
         if (outStepId != self->stepId) {
-            CLOG_ERROR("internal error steps buffer is missing steps. expected %04X but received %04X", self->stepId, outStepId)
+            CLOG_C_ERROR(&self->log, "internal error steps buffer is missing steps. expected %04X but received %04X", self->stepId, outStepId)
             return -1;
         }
         struct NimbleStepsOutSerializeLocalParticipants participants;
 
         nbsStepsInSerializeAuthoritativeStepHelper(&participants, self->readTempBuffer, payloadOctetCount);
-        CLOG_DEBUG("read authoritative step %016X  octetCount: %d", outStepId, payloadOctetCount);
+        CLOG_C_VERBOSE(&self->log, "read authoritative step %08X  octetCount: %d", outStepId, payloadOctetCount);
         for (size_t i = 0; i < participants.participantCount; ++i) {
             NimbleStepsOutSerializeLocalParticipant* participant = &participants.participants[i];
-            CLOG_DEBUG(" participant %d '%s' octetCount: %zu", participant->participantIndex, participant->payload,
+            CLOG_C_VERBOSE(&self->log, "  participant %d octetCount: %zu", participant->participantIndex,
                        participant->payloadCount);
         }
 
         if (participants.participantCount > self->maxPlayerCount) {
-            CLOG_SOFT_ERROR("Too many participants %zu", participants.participantCount);
+            CLOG_C_SOFT_ERROR(&self->log, "Too many participants %zu", participants.participantCount);
             return -99;
         }
         self->cachedTransmuteInput.participantCount = participants.participantCount;
@@ -82,7 +85,7 @@ int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId
     NimbleStepsOutSerializeLocalParticipants data;
 
     for (size_t i = 0; i < input->participantCount; ++i) {
-        data.participants[i].participantIndex = i;
+        data.participants[i].participantIndex = input->participantInputs[i].participantId;
         data.participants[i].payload = input->participantInputs[i].input;
         data.participants[i].payloadCount = input->participantInputs[i].octetSize;
     }
@@ -92,10 +95,14 @@ int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId
 
     int octetCount = nbsStepsOutSerializeStep(&data, self->readTempBuffer, self->readTempBufferSize);
     if (octetCount < 0) {
-        CLOG_ERROR("seerAddPredictedSteps: could not serialize")
+        CLOG_C_ERROR(&self->log, "assentAddAuthoritativeStep: could not serialize")
         return octetCount;
     }
 
-    return nbsStepsWrite(&self->authoritativeSteps, tickId, self->readTempBuffer, octetCount);
+    return assentAddAuthoritativeStepRaw(self,  self->readTempBuffer, octetCount, tickId);
+}
 
+int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount, StepId tickId)
+{
+    return nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
 }

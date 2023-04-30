@@ -30,7 +30,7 @@ typedef struct AssentSetup {
     struct ImprintAllocator* allocator;
     size_t maxTicksPerRead;
     size_t maxPlayers;
-    size_t maxInputOctetSize;
+    size_t maxStepOctetSizeForSingleParticipant;
     Clog log;
 } AssentSetup;
 
@@ -39,5 +39,6 @@ void assentDestroy(Assent* self);
 int assentUpdate(Assent* self);
 int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
 TransmuteState assentGetState(const Assent* self, StepId* outStepId);
+int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount, StepId tickId);
 
 #endif
