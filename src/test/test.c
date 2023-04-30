@@ -123,7 +123,7 @@ UTEST(Assent, verify)
     assentSetup.allocator = &imprint.slabAllocator.info.allocator;
     assentSetup.maxTicksPerRead = 15;
     assentSetup.maxPlayers = 16;
-    assentSetup.maxInputOctetSize = 100;
+    assentSetup.maxStepOctetSizeForSingleParticipant = 10;
     assentSetup.log = assentSubLog;
 
     assentInit(&assent, transmuteVm, assentSetup, initialTransmuteState, initialStepId);
@@ -135,6 +135,7 @@ UTEST(Assent, verify)
     TransmuteParticipantInput participantInputs[1];
     participantInputs[0].input = &gameInput;
     participantInputs[0].octetSize = sizeof(gameInput);
+    participantInputs[0].participantId = 1;
 
     transmuteInput.participantInputs = participantInputs;
     transmuteInput.participantCount = 1;
