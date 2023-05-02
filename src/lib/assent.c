@@ -71,6 +71,8 @@ int assentUpdate(Assent* self)
         self->stepId++;
     }
 
+    CLOG_C_VERBOSE(&self->log, "remaining authoritative steps after tick: %zu", self->authoritativeSteps.stepsCount)
+
     return 0;
 }
 
@@ -104,5 +106,7 @@ int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId
 
 int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount, StepId tickId)
 {
-    return nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
+    int result = nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
+    CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
+    return result;
 }
