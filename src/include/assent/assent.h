@@ -16,7 +16,7 @@ struct NbsSteps;
 
 typedef struct Assent {
     TransmuteVm transmuteVm;
-    TransmuteInput cachedTransmuteInput;
+    TransmuteInput lastTransmuteInput;
     size_t maxPlayerCount;
     size_t maxTicksPerRead;
     uint8_t* readTempBuffer;
