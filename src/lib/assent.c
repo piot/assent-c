@@ -48,7 +48,7 @@ int assentUpdate(Assent* self)
         }
         struct NimbleStepsOutSerializeLocalParticipants participants;
 
-        nbsStepsInSerializeAuthoritativeStepHelper(&participants, self->readTempBuffer, payloadOctetCount);
+        nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer, payloadOctetCount);
         CLOG_C_VERBOSE(&self->log, "read authoritative step %08X  octetCount: %d", outStepId, payloadOctetCount);
         for (size_t i = 0; i < participants.participantCount; ++i) {
             NimbleStepsOutSerializeLocalParticipant* participant = &participants.participants[i];
