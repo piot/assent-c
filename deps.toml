@@ -15,7 +15,6 @@ version = "*"
 name = "piot/nimble-steps-serialize-c"
 version = "*"
 
-
 [[dependencies]]
 name = "piot/imprint"
 version = "*"
