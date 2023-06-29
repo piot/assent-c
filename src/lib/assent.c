@@ -53,7 +53,7 @@ int assentUpdate(Assent* self)
 
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
-        CLOG_C_VERBOSE(&self->log, "read authoritative step %08X  octetCount: %d", outStepId, payloadOctetCount);
+        CLOG_C_VERBOSE(&self->log, "read authoritative step %08X  octetCount: %d", outStepId, payloadOctetCount)
 
 #if defined CLOG_LOG_ENABLE
         for (size_t i = 0; i < participants.participantCount; ++i) {
@@ -64,7 +64,7 @@ int assentUpdate(Assent* self)
 #endif
 
         if (participants.participantCount > self->maxPlayerCount) {
-            CLOG_C_SOFT_ERROR(&self->log, "Too many participants %zu", participants.participantCount);
+            CLOG_C_SOFT_ERROR(&self->log, "Too many participants %zu", participants.participantCount)
             return -99;
         }
         self->lastTransmuteInput.participantCount = participants.participantCount;
