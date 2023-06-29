@@ -37,7 +37,7 @@ typedef struct AssentSetup {
 void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, TransmuteState state, StepId stepId);
 void assentDestroy(Assent* self);
 int assentUpdate(Assent* self);
-int assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
+ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
 TransmuteState assentGetState(const Assent* self, StepId* outStepId);
 int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount, StepId tickId);
 
