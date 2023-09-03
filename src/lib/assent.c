@@ -42,9 +42,8 @@ static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeParticipant
             return TransmuteParticipantInputTypeNoInputInTime;
         case NimbleSerializeParticipantConnectStateStepWaitingForReconnect:
             return TransmuteParticipantInputTypeWaitingForReconnect;
-        default:
-            CLOG_ERROR("not a valid connect state in assent")
     }
+    CLOG_ERROR("toTransmuteInput() not a valid connect state in assent %d", state)
 }
 
 int assentUpdate(Assent* self)
@@ -115,6 +114,7 @@ static NimbleSerializeParticipantConnectState toConnectState(TransmuteParticipan
         case TransmuteParticipantInputTypeWaitingForReconnect:
             return NimbleSerializeParticipantConnectStateStepWaitingForReconnect;
     }
+    CLOG_ERROR("toConnectState() not a valid connect state in assent %d", inputType)
 }
 
 ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId)
