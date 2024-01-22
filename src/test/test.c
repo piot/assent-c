@@ -163,7 +163,7 @@ UTEST(Assent, verify)
     assentSetup.maxStepOctetSizeForSingleParticipant = 10;
     assentSetup.log = assentSubLog;
 
-    assentInit(&assent, &assentCallbackObject, assentSetup, initialTransmuteState, initialStepId);
+    assentInit(&assent, assentCallbackObject, assentSetup, initialTransmuteState, initialStepId);
 
     AppSpecificParticipantInput gameInput;
     gameInput.horizontalAxis = 24;
