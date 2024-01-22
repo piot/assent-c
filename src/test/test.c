@@ -8,8 +8,6 @@
 
 #include <assent/assent.h>
 #include <imprint/default_setup.h>
-#include <nimble-steps-serialize/in_serialize.h>
-#include <nimble-steps-serialize/out_serialize.h>
 
 typedef struct AppSpecificState {
     int x;
@@ -29,13 +27,18 @@ void appSpecificTick(void* _self, const TransmuteInput* input)
     AppSpecificVm* self = (AppSpecificVm*) _self;
 
     if (input->participantCount > 0) {
-        const AppSpecificParticipantInput* appSpecificInput = (AppSpecificParticipantInput*) input->participantInputs[0]
-                                                                  .input;
-        if (appSpecificInput->horizontalAxis > 0) {
-            self->appSpecificState.x++;
-            CLOG_DEBUG("app: tick with input %d, walking to the right", appSpecificInput->horizontalAxis)
-        } else {
-            CLOG_DEBUG("app: tick with input %d, not walking to the right", appSpecificInput->horizontalAxis)
+        const TransmuteParticipantInput* firstInput = &input->participantInputs[0];
+        if (firstInput->inputType != TransmuteParticipantInputTypeNormal) {
+            return;
+        }
+        const AppSpecificParticipantInput* appSpecificInput = (AppSpecificParticipantInput*) firstInput->input;
+        if (input->participantInputs) {
+            if (appSpecificInput->horizontalAxis > 0) {
+                self->appSpecificState.x++;
+                CLOG_DEBUG("app: tick with input %d, walking to the right", appSpecificInput->horizontalAxis)
+            } else {
+                CLOG_DEBUG("app: tick with input %d, not walking to the right", appSpecificInput->horizontalAxis)
+            }
         }
     } else {
         CLOG_DEBUG("app: tick with no input")
@@ -79,6 +82,32 @@ int appSpecificInputToString(void* _self, const TransmuteParticipantInput* input
     return tc_snprintf(target, maxTargetOctetSize, "input: horizontalAxis: %d", participantInput->horizontalAxis);
 }
 
+typedef struct TestAssentCallbackObject {
+    AppSpecificVm* vm;
+    TransmuteVm* transmuteVm;
+} TestAssentCallbackObject;
+
+void assentDeserialize(void* _self, const TransmuteState* state)
+{
+    CLOG_INFO("authoritative: deserialize")
+    const TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
+    transmuteVmSetState(self->transmuteVm, state);
+}
+
+void assentPreTicks(void* _self)
+{
+    (void) _self;
+    CLOG_INFO("authoritative: before ticks")
+    // TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
+}
+
+void assentTick(void* _self, const TransmuteInput* inputs)
+{
+    CLOG_INFO("authoritative: tick")
+    const TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
+    transmuteVmTick(self->transmuteVm, inputs);
+}
+
 UTEST(Assent, verify)
 {
     ImprintDefaultSetup imprint;
@@ -86,7 +115,14 @@ UTEST(Assent, verify)
 
     Assent assent;
 
+    TestAssentCallbackObject appSpecificAssentCallback;
     AppSpecificVm appSpecificVm;
+
+    appSpecificAssentCallback.vm = &appSpecificVm;
+
+    AssentCallbackVtbl vtbl = {.deserializeFn = assentDeserialize, .preTicksFn = assentPreTicks, .tickFn = assentTick};
+
+    AssentCallbackObject assentCallbackObject = {.self = &appSpecificAssentCallback, .vtbl = &vtbl};
 
     TransmuteVm transmuteVm;
     TransmuteVmSetup setup;
@@ -103,6 +139,7 @@ UTEST(Assent, verify)
     subLog.constantPrefix = "AuthoritativeVm";
 
     transmuteVmInit(&transmuteVm, &appSpecificVm, setup, subLog);
+    appSpecificAssentCallback.transmuteVm = &transmuteVm;
 
     AppSpecificState initialAppState;
     initialAppState.time = 0;
@@ -126,16 +163,18 @@ UTEST(Assent, verify)
     assentSetup.maxStepOctetSizeForSingleParticipant = 10;
     assentSetup.log = assentSubLog;
 
-    assentInit(&assent, transmuteVm, assentSetup, initialTransmuteState, initialStepId);
+    assentInit(&assent, &assentCallbackObject, assentSetup, initialTransmuteState, initialStepId);
 
     AppSpecificParticipantInput gameInput;
     gameInput.horizontalAxis = 24;
 
     TransmuteInput transmuteInput;
-    TransmuteParticipantInput participantInputs[1];
-    participantInputs[0].input = &gameInput;
-    participantInputs[0].octetSize = sizeof(gameInput);
-    participantInputs[0].participantId = 1;
+    TransmuteParticipantInput participantInputs[1] = {[0] = {
+                                                          .input = &gameInput,
+                                                          .octetSize = sizeof(gameInput),
+                                                          .participantId = 1,
+                                                          .inputType = TransmuteParticipantInputTypeNormal,
+                                                      }};
 
     transmuteInput.participantInputs = participantInputs;
     transmuteInput.participantCount = 1;
@@ -147,11 +186,9 @@ UTEST(Assent, verify)
 
     assentUpdate(&assent);
 
-    StepId expectedStepId;
-    TransmuteState currentState = assentGetState(&assent, &expectedStepId);
-    const AppSpecificState* currentAppState = (const AppSpecificState*) currentState.state;
+    const AppSpecificState* currentAppState = &appSpecificVm.appSpecificState;
 
-    ASSERT_EQ(initialStepId + 1, expectedStepId);
+    ASSERT_EQ(initialStepId + 1, assent.stepId);
     ASSERT_EQ(1, currentAppState->x);
     ASSERT_EQ(1, currentAppState->time);
 }

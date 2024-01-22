@@ -5,17 +5,37 @@
 #ifndef ASSENT_H
 #define ASSENT_H
 
+#include <nimble-steps/steps.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <transmute/transmute.h>
-#include <nimble-steps/steps.h>
 
 struct ImprintAllocator;
 struct NbsSteps;
 
+struct AssentCallbackObject;
+
+typedef void (*AssentDeserializeStateFn)(void* self, const TransmuteState* state);
+typedef void (*AssentPreAuthoritativeTicksFn)(void* self);
+typedef void (*AssentAuthoritativeTickFn)(void* self, const TransmuteInput* input);
+
+typedef struct AssentCallbackVtbl {
+    AssentPreAuthoritativeTicksFn preTicksFn;
+    AssentAuthoritativeTickFn tickFn;
+    AssentDeserializeStateFn deserializeFn;
+} AssentCallbackVtbl;
+
+typedef struct AssentCallbackObject {
+    AssentCallbackVtbl* vtbl;
+    void* self;
+} AssentCallbackObject;
+
+#define TORNADO_CALLBACK(object, functionName) object->vtbl->functionName(object->self)
+#define TORNADO_CALLBACK_1(object, functionName, param1) object->vtbl->functionName(object->self, param1)
+
 typedef struct Assent {
-    TransmuteVm transmuteVm;
+    AssentCallbackObject* callbackObject;
     TransmuteInput lastTransmuteInput;
     size_t maxPlayerCount;
     size_t maxTicksPerRead;
@@ -34,11 +54,11 @@ typedef struct AssentSetup {
     Clog log;
 } AssentSetup;
 
-void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, TransmuteState state, StepId stepId);
+void assentInit(Assent* self, AssentCallbackObject* callback, AssentSetup setup, TransmuteState state, StepId stepId);
 void assentDestroy(Assent* self);
 int assentUpdate(Assent* self);
 ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
-TransmuteState assentGetState(const Assent* self, StepId* outStepId);
-int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount, StepId tickId);
+int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount,
+                                  StepId tickId);
 
 #endif

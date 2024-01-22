@@ -33,6 +33,9 @@ jobs:
       - name: build
         run: cmake --build . --clean-first
 
+      - name: test
+        run: ctest --verbose
+
       - uses: actions/upload-artifact@v3
         with:
           name: Assent Linux Library

@@ -7,30 +7,31 @@
 #include <imprint/allocator.h>
 #include <nimble-steps-serialize/in_serialize.h>
 
-void assentInit(Assent* self, TransmuteVm transmuteVm, AssentSetup setup, TransmuteState state, StepId stepId)
+void assentInit(Assent* self, AssentCallbackObject* callbackObject, AssentSetup setup, TransmuteState state,
+                StepId stepId)
 {
-    self->transmuteVm = transmuteVm;
+    self->callbackObject = callbackObject;
     self->maxPlayerCount = setup.maxPlayers;
     self->maxTicksPerRead = setup.maxTicksPerRead;
     self->lastTransmuteInput.participantInputs = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, TransmuteParticipantInput,
                                                                           setup.maxPlayers);
     self->lastTransmuteInput.participantCount = 0;
 
-    size_t combinedStepOctetCount = nbsStepsOutSerializeCalculateCombinedSize(
+    const size_t combinedStepOctetCount = nbsStepsOutSerializeCalculateCombinedSize(
         setup.maxPlayers, setup.maxStepOctetSizeForSingleParticipant);
     self->readTempBufferSize = combinedStepOctetCount;
     self->readTempBuffer = IMPRINT_ALLOC_TYPE_COUNT(setup.allocator, uint8_t, self->readTempBufferSize);
 
     nbsStepsInit(&self->authoritativeSteps, setup.allocator, combinedStepOctetCount, setup.log);
     nbsStepsReInit(&self->authoritativeSteps, stepId);
-    transmuteVmSetState(&self->transmuteVm, &state);
+    callbackObject->vtbl->deserializeFn(callbackObject->self, &state);
     self->stepId = stepId;
     self->log = setup.log;
 }
 
 void assentDestroy(Assent* self)
 {
-    self->transmuteVm.vmPointer = 0;
+    (void) self;
 }
 
 static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeParticipantConnectState state)
@@ -49,10 +50,11 @@ static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeParticipant
 int assentUpdate(Assent* self)
 {
     StepId outStepId;
+    bool hasCalledFirstTickThisUpdate = false;
 
     for (size_t readCount = 0; readCount < self->maxTicksPerRead; ++readCount) {
-        int payloadOctetCount = nbsStepsRead(&self->authoritativeSteps, &outStepId, self->readTempBuffer,
-                                             self->readTempBufferSize);
+        const int payloadOctetCount = nbsStepsRead(&self->authoritativeSteps, &outStepId, self->readTempBuffer,
+                                                   self->readTempBufferSize);
         if (payloadOctetCount <= 0) {
             break;
         }
@@ -62,7 +64,8 @@ int assentUpdate(Assent* self)
                          self->stepId, outStepId)
             // return -1;
         }
-        struct NimbleStepsOutSerializeLocalParticipants participants;
+
+        NimbleStepsOutSerializeLocalParticipants participants;
 
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
@@ -89,19 +92,19 @@ int assentUpdate(Assent* self)
             self->lastTransmuteInput.participantInputs[i].octetSize = participant->payloadCount;
         }
 
-        transmuteVmTick(&self->transmuteVm, &self->lastTransmuteInput);
+        if (!hasCalledFirstTickThisUpdate) {
+            hasCalledFirstTickThisUpdate = true;
+            TORNADO_CALLBACK(self->callbackObject, preTicksFn);
+        }
+
+        TORNADO_CALLBACK_1(self->callbackObject, tickFn, &self->lastTransmuteInput);
+
         self->stepId++;
     }
 
     CLOG_C_VERBOSE(&self->log, "remaining authoritative steps after tick: %zu", self->authoritativeSteps.stepsCount)
 
     return 0;
-}
-
-TransmuteState assentGetState(const Assent* self, StepId* outStepId)
-{
-    *outStepId = self->stepId;
-    return transmuteVmGetState(&self->transmuteVm);
 }
 
 static NimbleSerializeParticipantConnectState toConnectState(TransmuteParticipantInputType inputType)
@@ -142,7 +145,7 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
 int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthoritativeStep, size_t octetCount,
                                   StepId tickId)
 {
-    int result = nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
+    const int result = nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
     CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
     return result;
 }
