@@ -7,7 +7,7 @@
 #include <imprint/allocator.h>
 #include <nimble-steps-serialize/in_serialize.h>
 
-void assentInit(Assent* self, AssentCallbackObject* callbackObject, AssentSetup setup, TransmuteState state,
+void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup setup, TransmuteState state,
                 StepId stepId)
 {
     self->callbackObject = callbackObject;
@@ -24,7 +24,7 @@ void assentInit(Assent* self, AssentCallbackObject* callbackObject, AssentSetup 
 
     nbsStepsInit(&self->authoritativeSteps, setup.allocator, combinedStepOctetCount, setup.log);
     nbsStepsReInit(&self->authoritativeSteps, stepId);
-    callbackObject->vtbl->deserializeFn(callbackObject->self, &state);
+    callbackObject.vtbl->deserializeFn(callbackObject.self, &state);
     self->stepId = stepId;
     self->log = setup.log;
 }

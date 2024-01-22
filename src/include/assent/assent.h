@@ -31,11 +31,11 @@ typedef struct AssentCallbackObject {
     void* self;
 } AssentCallbackObject;
 
-#define TORNADO_CALLBACK(object, functionName) object->vtbl->functionName(object->self)
-#define TORNADO_CALLBACK_1(object, functionName, param1) object->vtbl->functionName(object->self, param1)
+#define TORNADO_CALLBACK(object, functionName) object.vtbl->functionName(object.self)
+#define TORNADO_CALLBACK_1(object, functionName, param1) object.vtbl->functionName(object.self, param1)
 
 typedef struct Assent {
-    AssentCallbackObject* callbackObject;
+    AssentCallbackObject callbackObject;
     TransmuteInput lastTransmuteInput;
     size_t maxPlayerCount;
     size_t maxTicksPerRead;
@@ -54,7 +54,7 @@ typedef struct AssentSetup {
     Clog log;
 } AssentSetup;
 
-void assentInit(Assent* self, AssentCallbackObject* callback, AssentSetup setup, TransmuteState state, StepId stepId);
+void assentInit(Assent* self, AssentCallbackObject callback, AssentSetup setup, TransmuteState state, StepId stepId);
 void assentDestroy(Assent* self);
 int assentUpdate(Assent* self);
 ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, StepId tickId);
