@@ -24,7 +24,7 @@ void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup s
 
     nbsStepsInit(&self->authoritativeSteps, setup.allocator, combinedStepOctetCount, setup.log);
     nbsStepsReInit(&self->authoritativeSteps, stepId);
-    callbackObject.vtbl->deserializeFn(callbackObject.self, &state);
+    callbackObject.vtbl->deserializeFn(callbackObject.self, &state, stepId);
     self->stepId = stepId;
     self->log = setup.log;
 }

@@ -16,7 +16,7 @@ struct NbsSteps;
 
 struct AssentCallbackObject;
 
-typedef void (*AssentDeserializeStateFn)(void* self, const TransmuteState* state);
+typedef void (*AssentDeserializeStateFn)(void* self, const TransmuteState* state, StepId stepId);
 typedef void (*AssentPreAuthoritativeTicksFn)(void* self);
 typedef void (*AssentAuthoritativeTickFn)(void* self, const TransmuteInput* input);
 
