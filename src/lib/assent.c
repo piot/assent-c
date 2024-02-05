@@ -29,7 +29,7 @@ void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup s
     nbsStepsReInit(&self->authoritativeSteps, stepId);
     callbackObject.vtbl->deserializeFn(callbackObject.self, &state, stepId);
 
-    uint64_t authoritativeHash = callbackObject.vtbl->hashFn(callbackObject.self);
+    CLOG_EXECUTE(uint64_t authoritativeHash = callbackObject.vtbl->hashFn(callbackObject.self);)
 
     CLOG_C_DEBUG(&self->log, "assentInit stepId:%04X octetSize:%zu authoritative hash: %08" PRIX64, stepId, state.octetSize, authoritativeHash)
     self->stepId = stepId;
@@ -73,7 +73,7 @@ int assentUpdate(Assent* self)
 
         NimbleStepsOutSerializeLocalParticipants participants;
 
-        uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);
+        CLOG_EXECUTE(uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);)
 
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
