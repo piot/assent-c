@@ -87,7 +87,7 @@ typedef struct TestAssentCallbackObject {
     TransmuteVm* transmuteVm;
 } TestAssentCallbackObject;
 
-void assentDeserialize(void* _self, const TransmuteState* state)
+void assentDeserialize(void* _self, const TransmuteState* state, StepId stepId)
 {
     CLOG_INFO("authoritative: deserialize")
     const TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
@@ -101,7 +101,7 @@ void assentPreTicks(void* _self)
     // TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
 }
 
-void assentTick(void* _self, const TransmuteInput* inputs)
+void assentTick(void* _self, const TransmuteInput* inputs, StepId stepId)
 {
     CLOG_INFO("authoritative: tick")
     const TestAssentCallbackObject* self = (TestAssentCallbackObject*) _self;
