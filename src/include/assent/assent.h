@@ -18,12 +18,14 @@ struct AssentCallbackObject;
 
 typedef void (*AssentDeserializeStateFn)(void* self, const TransmuteState* state, StepId stepId);
 typedef void (*AssentPreAuthoritativeTicksFn)(void* self);
-typedef void (*AssentAuthoritativeTickFn)(void* self, const TransmuteInput* input);
+typedef void (*AssentAuthoritativeTickFn)(void* self, const TransmuteInput* input, StepId stepId);
+typedef uint64_t (*AssentAuthoritativeHashFn)(void* self);
 
 typedef struct AssentCallbackVtbl {
     AssentPreAuthoritativeTicksFn preTicksFn;
     AssentAuthoritativeTickFn tickFn;
     AssentDeserializeStateFn deserializeFn;
+    AssentAuthoritativeHashFn hashFn;
 } AssentCallbackVtbl;
 
 typedef struct AssentCallbackObject {
@@ -33,6 +35,7 @@ typedef struct AssentCallbackObject {
 
 #define TORNADO_CALLBACK(object, functionName) object.vtbl->functionName(object.self)
 #define TORNADO_CALLBACK_1(object, functionName, param1) object.vtbl->functionName(object.self, param1)
+#define TORNADO_CALLBACK_2(object, functionName, param1, param2) object.vtbl->functionName(object.self, param1, param2)
 
 typedef struct Assent {
     AssentCallbackObject callbackObject;

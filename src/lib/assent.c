@@ -5,11 +5,14 @@
 #include "nimble-steps-serialize/out_serialize.h"
 #include <assent/assent.h>
 #include <imprint/allocator.h>
+#include <inttypes.h>
+#include <mash/murmur.h>
 #include <nimble-steps-serialize/in_serialize.h>
 
 void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup setup, TransmuteState state,
                 StepId stepId)
 {
+    self->log = setup.log;
     self->callbackObject = callbackObject;
     self->maxPlayerCount = setup.maxPlayers;
     self->maxTicksPerRead = setup.maxTicksPerRead;
@@ -25,8 +28,11 @@ void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup s
     nbsStepsInit(&self->authoritativeSteps, setup.allocator, combinedStepOctetCount, setup.log);
     nbsStepsReInit(&self->authoritativeSteps, stepId);
     callbackObject.vtbl->deserializeFn(callbackObject.self, &state, stepId);
+
+    uint64_t authoritativeHash = callbackObject.vtbl->hashFn(callbackObject.self);
+
+    CLOG_C_DEBUG(&self->log, "assentInit stepId:%04X octetSize:%zu authoritative hash: %08" PRIX64, stepId, state.octetSize, authoritativeHash)
     self->stepId = stepId;
-    self->log = setup.log;
 }
 
 void assentDestroy(Assent* self)
@@ -67,9 +73,14 @@ int assentUpdate(Assent* self)
 
         NimbleStepsOutSerializeLocalParticipants participants;
 
+        uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);
+
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
-        CLOG_C_VERBOSE(&self->log, "read authoritative step %08X  octetCount: %d", outStepId, payloadOctetCount)
+        CLOG_C_VERBOSE(&self->log,
+                       "read authoritative step %08X (octetCount:%d hash:%04X) authoritative hash:%08" PRIX64,
+                       outStepId, payloadOctetCount, mashMurmurHash3(self->readTempBuffer, (size_t) payloadOctetCount),
+                       authoritativeStateHash)
 
 #if defined CLOG_LOG_ENABLE
         for (size_t i = 0; i < participants.participantCount; ++i) {
@@ -97,7 +108,7 @@ int assentUpdate(Assent* self)
             TORNADO_CALLBACK(self->callbackObject, preTicksFn);
         }
 
-        TORNADO_CALLBACK_1(self->callbackObject, tickFn, &self->lastTransmuteInput);
+        TORNADO_CALLBACK_2(self->callbackObject, tickFn, &self->lastTransmuteInput, self->stepId);
 
         self->stepId++;
     }
@@ -125,10 +136,18 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
     NimbleStepsOutSerializeLocalParticipants data;
 
     for (size_t i = 0; i < input->participantCount; ++i) {
-        data.participants[i].participantId = input->participantInputs[i].participantId;
-        data.participants[i].connectState = toConnectState(input->participantInputs[i].inputType);
-        data.participants[i].payload = input->participantInputs[i].input;
-        data.participants[i].payloadCount = input->participantInputs[i].octetSize;
+        const TransmuteParticipantInput* sourceParticipantInput = &input->participantInputs[i];
+        NimbleStepsOutSerializeLocalParticipant* target = &data.participants[i];
+
+        target->participantId = sourceParticipantInput->participantId;
+        target->connectState = toConnectState(sourceParticipantInput->inputType);
+        if (sourceParticipantInput->inputType == TransmuteParticipantInputTypeNormal) {
+            CLOG_ASSERT(sourceParticipantInput->input != 0, "input can not be null for normal steps")
+        } else {
+            CLOG_ASSERT(sourceParticipantInput->input == 0, "input must be null when it is not a normal step")
+        }
+        target->payload = sourceParticipantInput->input;
+        target->payloadCount = sourceParticipantInput->octetSize;
     }
 
     data.participantCount = input->participantCount;
