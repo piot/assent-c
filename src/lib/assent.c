@@ -165,6 +165,6 @@ int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthorita
                                   StepId tickId)
 {
     const int result = nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
-    CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
+    //CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
     return result;
 }
