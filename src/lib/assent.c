@@ -31,7 +31,8 @@ void assentInit(Assent* self, AssentCallbackObject callbackObject, AssentSetup s
 
     CLOG_EXECUTE(uint64_t authoritativeHash = callbackObject.vtbl->hashFn(callbackObject.self);)
 
-    CLOG_C_DEBUG(&self->log, "assentInit stepId:%04X octetSize:%zu authoritative hash: %08" PRIX64, stepId, state.octetSize, authoritativeHash)
+    CLOG_C_DEBUG(&self->log, "assentInit stepId:%04X octetSize:%zu authoritative hash: %08" PRIX64, stepId,
+                 state.octetSize, authoritativeHash)
     self->stepId = stepId;
 }
 
@@ -73,14 +74,14 @@ int assentUpdate(Assent* self)
 
         NimbleStepsOutSerializeLocalParticipants participants;
 
-        CLOG_EXECUTE(uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);)
+       // CLOG_EXECUTE(uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);)
 
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
-        CLOG_C_VERBOSE(&self->log,
-                       "read authoritative step %08X (octetCount:%d hash:%04X) authoritative hash:%08" PRIX64,
-                       outStepId, payloadOctetCount, mashMurmurHash3(self->readTempBuffer, (size_t) payloadOctetCount),
-                       authoritativeStateHash)
+        // CLOG_C_VERBOSE(&self->log,
+        //              "read authoritative step %08X (octetCount:%d hash:%04X) authoritative hash:%08" PRIX64,
+        //            outStepId, payloadOctetCount, mashMurmurHash3(self->readTempBuffer, (size_t) payloadOctetCount),
+        //          authoritativeStateHash)
 
 #if defined CLOG_LOG_ENABLE
         for (size_t i = 0; i < participants.participantCount; ++i) {
@@ -165,6 +166,6 @@ int assentAddAuthoritativeStepRaw(Assent* self, const uint8_t* combinedAuthorita
                                   StepId tickId)
 {
     const int result = nbsStepsWrite(&self->authoritativeSteps, tickId, combinedAuthoritativeStep, octetCount);
-    //CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
+    // CLOG_C_VERBOSE(&self->log, "assent authoritative steps total:%zu", self->authoritativeSteps.stepsCount)
     return result;
 }
