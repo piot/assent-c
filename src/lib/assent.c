@@ -163,7 +163,7 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
 
     data.participantCount = input->participantCount;
 
-    ssize_t octetCount = nbsStepsOutSerializeStep(&data, self->readTempBuffer, self->readTempBufferSize);
+    ssize_t octetCount = nbsStepsOutSerializeCombinedStep(&data, self->readTempBuffer, self->readTempBufferSize);
     if (octetCount < 0) {
         CLOG_C_ERROR(&self->log, "assentAddAuthoritativeStep: could not serialize")
         // return octetCount;
