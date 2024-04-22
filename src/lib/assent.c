@@ -41,15 +41,19 @@ void assentDestroy(Assent* self)
     (void) self;
 }
 
-static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeParticipantConnectState state)
+static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeStepType state)
 {
     switch (state) {
-        case NimbleSerializeParticipantConnectStateNormal:
+        case NimbleSerializeStepTypeNormal:
             return TransmuteParticipantInputTypeNormal;
-        case NimbleSerializeParticipantConnectStateStepNotProvidedInTime:
+        case NimbleSerializeStepTypeStepNotProvidedInTime:
             return TransmuteParticipantInputTypeNoInputInTime;
-        case NimbleSerializeParticipantConnectStateStepWaitingForReconnect:
-            return TransmuteParticipantInputTypeWaitingForReconnect;
+        case NimbleSerializeStepTypeWaitingForReJoin:
+            return TransmuteParticipantInputTypeWaitingForReJoin;
+        case NimbleSerializeStepTypeJoined:
+            return TransmuteParticipantInputTypeJoined;
+        case NimbleSerializeStepTypeLeft:
+            return TransmuteParticipantInputTypeLeft;
     }
     CLOG_ERROR("toTransmuteInput() not a valid connect state in assent %u", state)
 }
@@ -74,7 +78,7 @@ int assentUpdate(Assent* self)
 
         NimbleStepsOutSerializeLocalParticipants participants;
 
-       // CLOG_EXECUTE(uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);)
+        // CLOG_EXECUTE(uint64_t authoritativeStateHash = TORNADO_CALLBACK(self->callbackObject, hashFn);)
 
         nbsStepsInSerializeStepsForParticipantsFromOctets(&participants, self->readTempBuffer,
                                                           (size_t) payloadOctetCount);
@@ -99,7 +103,8 @@ int assentUpdate(Assent* self)
         for (size_t i = 0; i < participants.participantCount; ++i) {
             NimbleStepsOutSerializeLocalParticipant* participant = &participants.participants[i];
             self->lastTransmuteInput.participantInputs[i].participantId = participant->participantId;
-            self->lastTransmuteInput.participantInputs[i].inputType = toTransmuteInput(participant->connectState);
+            self->lastTransmuteInput.participantInputs[i].localPartyId = participant->localPartyId;
+            self->lastTransmuteInput.participantInputs[i].inputType = toTransmuteInput(participant->stepType);
             self->lastTransmuteInput.participantInputs[i].input = participant->payload;
             self->lastTransmuteInput.participantInputs[i].octetSize = participant->payloadCount;
         }
@@ -119,15 +124,19 @@ int assentUpdate(Assent* self)
     return 0;
 }
 
-static NimbleSerializeParticipantConnectState toConnectState(TransmuteParticipantInputType inputType)
+static NimbleSerializeStepType toConnectState(TransmuteParticipantInputType inputType)
 {
     switch (inputType) {
         case TransmuteParticipantInputTypeNormal:
-            return NimbleSerializeParticipantConnectStateNormal;
+            return NimbleSerializeStepTypeNormal;
         case TransmuteParticipantInputTypeNoInputInTime:
-            return NimbleSerializeParticipantConnectStateStepNotProvidedInTime;
-        case TransmuteParticipantInputTypeWaitingForReconnect:
-            return NimbleSerializeParticipantConnectStateStepWaitingForReconnect;
+            return NimbleSerializeStepTypeStepNotProvidedInTime;
+        case TransmuteParticipantInputTypeWaitingForReJoin:
+            return NimbleSerializeStepTypeWaitingForReJoin;
+        case TransmuteParticipantInputTypeJoined:
+            return NimbleSerializeStepTypeJoined;
+        case TransmuteParticipantInputTypeLeft:
+            return NimbleSerializeStepTypeLeft;
     }
     CLOG_ERROR("toConnectState() not a valid connect state in assent %u", inputType)
 }
@@ -141,7 +150,8 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
         NimbleStepsOutSerializeLocalParticipant* target = &data.participants[i];
 
         target->participantId = sourceParticipantInput->participantId;
-        target->connectState = toConnectState(sourceParticipantInput->inputType);
+        target->localPartyId = sourceParticipantInput->localPartyId;
+        target->stepType = toConnectState(sourceParticipantInput->inputType);
         if (sourceParticipantInput->inputType == TransmuteParticipantInputTypeNormal) {
             CLOG_ASSERT(sourceParticipantInput->input != 0, "input can not be null for normal steps")
         } else {
