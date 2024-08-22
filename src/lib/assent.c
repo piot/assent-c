@@ -50,10 +50,10 @@ static TransmuteParticipantInputType toTransmuteInput(NimbleSerializeStepType st
             return TransmuteParticipantInputTypeNoInputInTime;
         case NimbleSerializeStepTypeWaitingForReJoin:
             return TransmuteParticipantInputTypeWaitingForReJoin;
-        case NimbleSerializeStepTypeLeft:
-            return TransmuteParticipantInputTypeLeft;
         case NimbleSerializeStepTypeJoined:
             return TransmuteParticipantInputTypeJoined;
+        case NimbleSerializeStepTypeLeft:
+            return TransmuteParticipantInputTypeLeft;
     }
     CLOG_ERROR("toTransmuteInput() not a valid connect state in assent %u", state)
 }
@@ -103,6 +103,7 @@ int assentUpdate(Assent* self)
         for (size_t i = 0; i < participants.participantCount; ++i) {
             NimbleStepsOutSerializeLocalParticipant* participant = &participants.participants[i];
             self->lastTransmuteInput.participantInputs[i].participantId = participant->participantId;
+            self->lastTransmuteInput.participantInputs[i].localPartyId = participant->localPartyId;
             self->lastTransmuteInput.participantInputs[i].inputType = toTransmuteInput(participant->stepType);
             self->lastTransmuteInput.participantInputs[i].input = participant->payload;
             self->lastTransmuteInput.participantInputs[i].octetSize = participant->payloadCount;
@@ -132,10 +133,10 @@ static NimbleSerializeStepType toConnectState(TransmuteParticipantInputType inpu
             return NimbleSerializeStepTypeStepNotProvidedInTime;
         case TransmuteParticipantInputTypeWaitingForReJoin:
             return NimbleSerializeStepTypeWaitingForReJoin;
-        case TransmuteParticipantInputTypeLeft:
-            return NimbleSerializeStepTypeLeft;
         case TransmuteParticipantInputTypeJoined:
             return NimbleSerializeStepTypeJoined;
+        case TransmuteParticipantInputTypeLeft:
+            return NimbleSerializeStepTypeLeft;
     }
     CLOG_ERROR("toConnectState() not a valid connect state in assent %u", inputType)
 }
@@ -149,6 +150,7 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
         NimbleStepsOutSerializeLocalParticipant* target = &data.participants[i];
 
         target->participantId = sourceParticipantInput->participantId;
+        target->localPartyId = sourceParticipantInput->localPartyId;
         target->stepType = toConnectState(sourceParticipantInput->inputType);
         if (sourceParticipantInput->inputType == TransmuteParticipantInputTypeNormal) {
             CLOG_ASSERT(sourceParticipantInput->input != 0, "input can not be null for normal steps")
@@ -161,7 +163,7 @@ ssize_t assentAddAuthoritativeStep(Assent* self, const TransmuteInput* input, St
 
     data.participantCount = input->participantCount;
 
-    ssize_t octetCount = nbsStepsOutSerializeStep(&data, self->readTempBuffer, self->readTempBufferSize);
+    ssize_t octetCount = nbsStepsOutSerializeCombinedStep(&data, self->readTempBuffer, self->readTempBufferSize);
     if (octetCount < 0) {
         CLOG_C_ERROR(&self->log, "assentAddAuthoritativeStep: could not serialize")
         // return octetCount;
