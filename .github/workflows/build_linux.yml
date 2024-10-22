@@ -8,21 +8,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install LLVM and Clang 17
-        uses: KyleMayes/install-llvm-action@v1
+      - name: Install LLVM and Clang 18
+        uses: KyleMayes/install-llvm-action@v2
         with:
-          version: '17.0.2'
+          version: '18.1'
           env: true
 
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.14
+        uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.27.x'
+          cmake-version: '3.30.x'
+
+      - name: Setup Go dependencies
+        run: sudo apt install libtinfo5
 
       - name: Install Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: deps fetch dependencies
         run: go run github.com/piot/deps/src/deps@main fetch
@@ -31,13 +34,13 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Debug .
 
       - name: build
-        run: cmake --build . --clean-first
+        run: cmake --build . --clean-first -- VERBOSE=1
 
-      - name: test
-        run: ctest --verbose
+      - name: run tests
+        run: ctest . --extra-verbose
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: Assent Linux Library
+          name: Nimble Assent Linux Library
           path: |
             src/lib/libassent.a
